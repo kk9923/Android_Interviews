@@ -155,11 +155,266 @@ public enum Singleton{
         return mSingleton;
     }
 ```
+### 六、使用容器类实现的单例模式
+
+```java
+public class SingletonManager {
+    private static  Map<String,Object> mObjectMap = new HashMap<>();
+    public static void  registerService (String key,Object instance){
+        if (!mObjectMap.containsKey(key)){
+            mObjectMap.put(key,instance);
+        }
+    }
+    public static Object getService(String key){
+        return mObjectMap.get(key);
+    }
+}
+```
+在程序的初始，将多种单例类型注入到一个统一的管理类中，在使用时根据key获取对应类型的对象。这种方式使得我们可以管理多种类型的单例，并且在使用时可以通过同意的接口进行获取操作，降低了用户的使用成本，也对用户隐藏了具体实现，降低了耦合度。
+
+### Android源码中的单例模式(SDK26)
+
+在Android系统中我们经常会通过Context去获取系统级别的服务，如WindowsManagerService、ActivityManagerService、LayoutInflater等,这些服务会在合适的时候以单例的形式注册在系统中，在我们需要的时候就通过Context的getSystemService(String name)去获取，我们以LayoutInflater为例，通常我们使用LayoutInflater.from(Context)来获取LayoutInflater服务。
+
+```java
+ public static LayoutInflater from(Context context) {
+        LayoutInflater LayoutInflater =
+                (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        if (LayoutInflater == null) {
+            throw new AssertionError("LayoutInflater not found.");
+        }
+        return LayoutInflater;
+    }
+```
+我们可以看到内部使用的是Context的getSystemService(String name)方法，其实在Application、Activity、Service中都会存在一个Context对象。我们以Activity中的Context来说明。
+
+一个Activity的入口是Activity的main函数，当我们启动一个Activity时，会通过Binder与ActivityManagerService通信，并且最终调用ActivityThread的performLaunchActivity()函数；
 
 
+```java
+
+    private Activity performLaunchActivity(ActivityClientRecord r, Intent customIntent) {
+    
+       //  获取Context对象
+        ContextImpl appContext = createBaseContextForActivity(r);
+        Activity activity = null;
+        try {
+            java.lang.ClassLoader cl = appContext.getClassLoader();
+            //  通过反射创建Activity对象
+            activity = mInstrumentation.newActivity(
+                    cl, component.getClassName(), r.intent);
+            StrictMode.incrementExpectedActivityCount(activity.getClass());
+            r.intent.setExtrasClassLoader(cl);
+            r.intent.prepareToEnterProcess();
+            if (r.state != null) {
+                r.state.setClassLoader(cl);
+            }
+        } catch (Exception e) {
+            if (!mInstrumentation.onException(activity, e)) {
+                throw new RuntimeException(
+                    "Unable to instantiate activity " + component
+                    + ": " + e.toString(), e);
+            }
+        }
+
+        try {
+            Application app = r.packageInfo.makeApplication(false, mInstrumentation);
+
+           
+
+            if (activity != null) {
+             
+                Window window = null;
+               //  调用Activity的attach()方法，其中PhoneWindow就是在Activity的attach()方法中创建的
+               //  将appContext等对象attach到Activity中
+                activity.attach(appContext, this, getInstrumentation(), r.token,
+                        r.ident, app, r.intent, r.activityInfo, title, r.parent,
+                        r.embeddedID, r.lastNonConfigurationInstances, config,
+                        r.referrer, r.voiceInteractor, window, r.configCallback);
+                // 调用Activity的onCreat()方法
+                if (r.isPersistable()) {
+                    mInstrumentation.callActivityOnCreate(activity, r.state, r.persistentState);
+                } else {
+                    mInstrumentation.callActivityOnCreate(activity, r.state);
+                }
+            
+                r.activity = activity;
+                r.stopped = true;
+                if (!r.activity.mFinished) {
+                   //  调用Activity的onStart()方法
+                    activity.performStart();
+                    r.stopped = false;
+                }
+    }
+```
+可以看到Activity中获取的是ContextImpl
+
+```java
+     ContextImpl appContext = createBaseContextForActivity(r);
+ 
+  
+     private ContextImpl createBaseContextForActivity(ActivityClientRecord r) {
+        //代码省略
+        ContextImpl appContext = ContextImpl.createActivityContext(
+                this, r.packageInfo, r.activityInfo, r.token, displayId, r.overrideConfig);
+        //代码省略
+        return appContext;
+    }
+
+```
+继续查看ContextImpl的getSystemService(String name)方法
+
+```java
+ @Override
+    public Object getSystemService(String name) {
+        return SystemServiceRegistry.getSystemService(this, name);
+    }
+```
+下面来分析下SystemServiceRegistry类的实现
 
 
+```java
+final class SystemServiceRegistry {
+
+ 
+    // Service容器
+    private static final HashMap<Class<?>, String> SYSTEM_SERVICE_NAMES = new HashMap<Class<?>, String>();
+    private static final HashMap<String, ServiceFetcher<?>> SYSTEM_SERVICE_FETCHERS = new HashMap<String, ServiceFetcher<?>>();
+
+ private static <T> void registerService(String serviceName, Class<T> serviceClass,
+            ServiceFetcher<T> serviceFetcher) {
+        SYSTEM_SERVICE_NAMES.put(serviceClass, serviceName);
+        SYSTEM_SERVICE_FETCHERS.put(serviceName, serviceFetcher);
+    }
+    
+    static abstract class CachedServiceFetcher<T> implements ServiceFetcher<T> {
+        private final int mCacheIndex;
+
+        public CachedServiceFetcher() {
+            mCacheIndex = sServiceCacheSize++;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public final T getService(ContextImpl ctx) {
+            final Object[] cache = ctx.mServiceCache;
+            synchronized (cache) {
+                // Fetch or create the service.
+                Object service = cache[mCacheIndex];
+                if (service == null) {
+                    try {
+                        service = createService(ctx);
+                        cache[mCacheIndex] = service;
+                    } catch (ServiceNotFoundException e) {
+                        onServiceNotFound(e);
+                    }
+                }
+                return (T)service;
+            }
+        }
+
+        public abstract T createService(ContextImpl ctx) throws ServiceNotFoundException;
+    }
+    
+   //  静态代码块,第一次加载该类时执行，
+  static {
+    
+        //  代码省略    
+        registerService(Context.LAYOUT_INFLATER_SERVICE, LayoutInflater.class,
+                new CachedServiceFetcher<LayoutInflater>() {
+            @Override
+            public LayoutInflater createService(ContextImpl ctx) {
+                return new PhoneLayoutInflater(ctx.getOuterContext());
+            }});
+        //  代码省略 
+        
+    } 
+     //   根据key来获取对应的服务
+     public static Object getSystemService(ContextImpl ctx, String name) {
+        ServiceFetcher<?> fetcher = SYSTEM_SERVICE_FETCHERS.get(name);
+        return fetcher != null ? fetcher.getService(ctx) : null;
+    }
+
+}
+
+```
+通过SystemServiceRegistry 中部分代码可知，在虚拟机第一次加载该类时会注册各种ServiceFatcher,其中就包括LayoutInflater Service,并将这些服务以键值对的形式存储在一个HashMap中，用户只需要根据key来获取到对应的ServiceFetcher,通过ServiceFetcher对象的getService函数来获取具体的服务对象。
+
+### System Services 缓存实现
+
+``` java
+    // The system service cache for the system services that are cached per-ContextImpl.
+    final Object[] mServiceCache = SystemServiceRegistry.createServiceCache();
+```
+在第一次创建ContextImpl时，会在ContextImpl类中创建一个Object数组，用于缓存system service，
+
+SystemServiceRegistry.createServiceCache()代码写法，
+```
+    /**
+     * Creates an array which is used to cache per-Context service instances.
+     */
+    public static Object[] createServiceCache() {
+        return new Object[sServiceCacheSize];
+    }
+    
+    
+    static abstract class CachedServiceFetcher<T> implements ServiceFetcher<T> {
+        private final int mCacheIndex;
+
+        public CachedServiceFetcher() {
+            mCacheIndex = sServiceCacheSize++;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public final T getService(ContextImpl ctx) {
+            final Object[] cache = ctx.mServiceCache;
+            synchronized (cache) {
+                // Fetch or create the service.
+                Object service = cache[mCacheIndex];
+                if (service == null) {
+                    try {
+                        service = createService(ctx);
+                        cache[mCacheIndex] = service;
+                    } catch (ServiceNotFoundException e) {
+                        onServiceNotFound(e);
+                    }
+                }
+                return (T)service;
+            }
+        }
+
+        public abstract T createService(ContextImpl ctx) throws ServiceNotFoundException;
+    }
+    
+    
+```
+在第一次加载SystemServiceRegistry类的时候会先加载静态代码块，通过HashMap缓存了多个ServiceFetcher，不断registerService的过程中总的缓存数量sServiceCacheSize也在不断的+1，同时每个ServiceFetcher自身也保存了一个mCacheIndex索引。当静态代码块执行完毕后，sServiceCacheSize的值就是所有系统服务的个数。然后才会去调用
+
+```java
+    public static Object[] createServiceCache() {
+        return new Object[sServiceCacheSize];
+    }
+```
+这样，ContextImpl中mServiceCache数组的lenth就是所有在SystemServiceRegistry静态代码块中注册过的系统服务的个数。当调用ContextImpl的getSystemService(String name)方法获得HashMap中缓存的ServiceFetcher后，根据每个ServiceFetcher保存的mCacheInde索引去去查看ContextImpl中mServiceCache数组对应的Service是否为空，如果为空则调用createService(ctx)方法创建service，并将数组对应的位置赋值，下次调用的时候则直接从数组中取出缓存的Service;
 
 
-
-
+```java
+        public final T getService(ContextImpl ctx) {
+            final Object[] cache = ctx.mServiceCache;
+            synchronized (cache) {
+                // Fetch or create the service.
+                Object service = cache[mCacheIndex];
+                if (service == null) {
+                    try {
+                        service = createService(ctx);
+                        cache[mCacheIndex] = service;
+                    } catch (ServiceNotFoundException e) {
+                        onServiceNotFound(e);
+                    }
+                }
+                return (T)service;
+            }
+        }
+```
+当第一次获取时会调用ServiceFetcher的creatService函数创建服务对象，并将对象缓存到一个数组中，下次直接从缓存中获取，避免重复创建对象，从而达到单例的效果。通过容器的单例模式实现方式，系统核心服务以单例形式存在，减少了资源消耗。
