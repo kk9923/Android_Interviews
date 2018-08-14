@@ -124,3 +124,19 @@
  - 系统扩展困难，一旦添加新产品就不得不修改工厂 if else 逻辑，违背了“开放-关闭原则”中的对修改关闭的准则了。
  - 工厂类负责所有对象的创建逻辑,违反了高内聚的责任分配原则,当工厂类出现问题的时候，整个系统都要受到影响。一般只在工厂类负责创建的对象比较少时使用.
  - 简单工厂模式由于使用了静态工厂方法，所以工厂角色无法形成基于继承的等级结构。
+ 
+ #### 简单工厂模式代码的体现
+ ```java
+ public class MainPagerAdapter extends FragmentPagerAdapter {
+     @Override
+     public Fragment getItem(int i) {
+         if (i == 0) {
+             return new HomeFragment();
+         } else if (i == 1) {
+             return new SettingFragment();
+         }
+         return null;
+     }
+     // ... ...
+ }
+ ```
