@@ -69,9 +69,9 @@ Android面试中常涉及的问题有如下几方面：
 
 ## 设计模式
 
-* [创建型模式]()
-* [结构型模式]()
-* [行为型模式]()
+* [创建型模式](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/CreatorPattern.md)
+* [结构型模式](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/StructuralPattern.md)
+* [行为型模式](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/BehavioralPattern.md)
 
 ## 计算机网络
 
