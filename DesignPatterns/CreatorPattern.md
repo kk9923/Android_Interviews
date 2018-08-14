@@ -2,7 +2,7 @@
 
 [Simple Factory Pattern（简单工厂模式）](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/CreatorPattern/SimpleFactoryPattern.md)：定义一个创建对象的接口，让子类决定实例化哪个类。
 
-[Factory Method（工厂方法模式）]()：定义一个创建对象的接口，让子类决定实例化哪个类。
+[Factory Method（工厂方法模式）](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/CreatorPattern/FactoryMethodPattern.md)：定义一个创建对象的接口，让子类决定实例化哪个类。
 
 [Abstract Factory（抽象工厂模式）]()：为创建一组相关或者是相互依赖的对象提供一个接口，而不需要制定它们的具体类。 
 
