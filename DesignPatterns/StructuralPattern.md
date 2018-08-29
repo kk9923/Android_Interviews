@@ -5,5 +5,5 @@
 * **组合模式\(Composite\)**
 * [装饰模式(Decorator)](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/StructuralPattern/DecoratorPattern.md)
 * **外观模式\(Facade\)**
-* **享元模式\(Flyweight\)**
+* [享元模式(Flyweight)](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/StructuralPattern/FlyWeightPattern.md)
 * [代理模式(Proxy)](https://github.com/kk9923/Android_Interviews/blob/master/DesignPatterns/StructuralPattern/ProxyPattern.md)
