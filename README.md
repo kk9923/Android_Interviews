@@ -50,7 +50,7 @@ Android面试中常涉及的问题有如下几方面：
 
 * [Android基础]()
 
-* [Android进阶]()
+* [Android进阶](https://github.com/kk9923/Android_Interviews/blob/master/Android/advance.md)
 
 ## 数据结构
 
@@ -81,8 +81,6 @@ Android面试中常涉及的问题有如下几方面：
 
     
 ## License
-
-Copyright 2018 kk9923
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
