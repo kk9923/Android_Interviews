@@ -1,1 +1,0 @@
-[View.post(Runnable)获取View的宽高](https://github.com/kk9923/Android_Interviews/blob/master/Android/advance/View#post.md)
