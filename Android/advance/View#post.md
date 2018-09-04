@@ -13,7 +13,7 @@
         });
 ```
 
-### post() 执行过程以及源码分析
+### post() 执行过程以及源码分析(API26)
 
 
 ```java
@@ -45,7 +45,7 @@ View中的变量mAttachInfo 赋值的地方：
         onAttachedToWindow();
     }
 ```
-其中**View的dispatchAttachedToWindow()**方法是在**ViewRootImpl中的performTraversals()方法**中被调用,也就是说我们在Activity的onCreat()方法中去post(Runnable)时,mAttachInfo为空。接下来我们来看一看**getRunQueue().post(action)**究竟做了什么.
+其中**View的dispatchAttachedToWindow()**方法是在**ViewRootImpl中的performTraversals()方法**中被调用,也就是说我们在Activity的onCreat()方法中去post(Runnable)时,mAttachInfo为空。接下来我们来看一看**getRunQueue().post(action)** 究竟做了什么.
 
 **getRunQueue()代码**
 
@@ -240,6 +240,70 @@ ViewRootImpl.getRunQueue()又是啥？
 }
 
 ```
+初始化主线程中的HandlerActionQueue，并将其队列中待执行的任务通过Handler全部发送到主线程的消息队列。
+
+**小结：**
+ - 在当前 View attach 到 Window 之前，会自己先维护一个 HandlerActionQueue 对象，用来存储当前的 Runnable 对象，然后等到 Attach 到 Window 的时候 (也就是 ViewRootImpl 执行到 performTraversal 方法时) ，会统一将 Runnable 转交给 ViewRootImpl 处理；
+
+ - 而在 View#dispatchAttachedToWindow 时，也会为当前 View 初始化一个 AttachInfo 对象，该对象持有 ViewRootImpl 中AttachInfo 的引用，当 View 有此对象后，后续的所有 Runnable 都将由ViewRootImpl.AttachInfo 中的Handler发送至主线程的消息队列；
+
+ - 而 ViewRootImpl 也会在执行 performTraversal 方法，也会调用 ViewRootImpl#getRunQueue ，利用 ThreadLocal 来为主线程维护一个 HandlerActionQueue 对象，至此，ViewRootImpl 内部都将使用该队列来进行 Runnable 任务的短期维护；
+
+ - 但需要注意的是，各个 View 调用的 post 方法，仍然是由各自的 HandlerActionQueue 对象来入队任务的，然后在 View#dispatchAttachedToWindow 的时候将Runnable发送至主线程消息队列。
+
+
+### View#post的版本变动(API23)
+
+```java
+    public boolean post(Runnable action) {
+        final AttachInfo attachInfo = mAttachInfo;
+        if (attachInfo != null) {
+            return attachInfo.mHandler.post(action);
+        }
+        // Assume that post will succeed later
+        // 注意此处，不同于我们之前介绍的，这里是直接使用 ViewRootImpl#getRunQueue 来入队任务的
+        ViewRootImpl.getRunQueue().post(action);
+        return true;
+    }
+```
+API23 版本中，View#post 在没有 attach 到 window 之前，也就是 mAttachInfo 是 null 的时候，不是自己维护任务队列，而是直接使用 ViewRootImpl#getRunQueue 来入队任务的。
+
+```java
+    static final ThreadLocal<RunQueue> sRunQueues = new ThreadLocal<RunQueue>();
+    static RunQueue getRunQueue() {
+        RunQueue rq = sRunQueues.get();
+        if (rq != null) {
+            return rq;
+        }
+        rq = new RunQueue();
+        sRunQueues.set(rq);
+        return rq;
+    }
+```
+
+其中ThreadLocal 是以线程为 key 值来存取RunQueue对象。假如我们在子线程中 post 了一个 runnable，其实是以当前子线程为key，创建RunQueue队列并将runnable保存起来等待执行。但在API23的源码中只有一次调用executeActions()方法，那就是在ViewRootImpl#performTraversal中。当执行到ViewRootImpl中的executeActions()方法时，系统却是去主线程队列中寻找待执行的 Runnable，那当然是永远都得不到执行了。
+
+在 attach 到 window之后，View会持有ViewRootImpl中AttachInfo的引用，然后直接使用AttachInfo中的Handler对象将Runnable封装成Message后发送至主线程消息队列。
+
+
+### 参考文章
+
+[https://mp.weixin.qq.com/s/aA-9UTlebdj5-K4z30f_4g](https://mp.weixin.qq.com/s/aA-9UTlebdj5-K4z30f_4g)
+
+[https://blog.csdn.net/a740169405/article/details/69668957](https://blog.csdn.net/a740169405/article/details/69668957)
+
+[https://blog.csdn.net/scnuxisan225/article/details/49815269](https://blog.csdn.net/scnuxisan225/article/details/49815269)
+
+[https://www.cnblogs.com/plokmju/p/7481727.html](https://www.cnblogs.com/plokmju/p/7481727.html)
+
+
+
+
+
+
+
+ 
+
 
 
 
