@@ -6,6 +6,8 @@ View和属性动画原理和区别
 
 [Activity启动流程](/Android/advance/StartActivity.md)
 
+[深拷贝和浅拷贝的区别](https://blog.csdn.net/zhangjg_blog/article/details/18369201)
+
 GC算法
 
 OkHttp原理
